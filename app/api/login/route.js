@@ -47,8 +47,10 @@ export async function POST(request) {
 
     const { data: peserta, error: pesertaError } = await supabase
       .from("peserta")
-      .select("nama, kelas, peserta_id, password, status, pernyataan")
-      .eq("peserta_id", peserta_id)
+      .select(
+        "nama, kelas, participant_id, password, status, pernyataan"
+      )
+      .eq("participant_id", peserta_id)
       .eq("password", password)
       .single();
 
@@ -64,7 +66,7 @@ export async function POST(request) {
       peserta: {
         nama: peserta.nama,
         kelas: peserta.kelas,
-        peserta_id: peserta.peserta_id,
+        participant_id: peserta.participant_id,
         status: peserta.status,
         pernyataan: peserta.pernyataan,
       },

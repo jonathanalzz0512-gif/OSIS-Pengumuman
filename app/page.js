@@ -1,17 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+);
 
 export default function Home() {
-  const announcementTime = new Date(
-    "2026-09-28T12:00:00Z"
-  ).getTime();
-
-  const [timeLeft, setTimeLeft] = useState("");
+  const [announcementTime, setAnnouncementTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState("Memuat...");
 
   useEffect(() => {
+    async function getAnnouncementTime() {
+      const { data, error } = await supabase
+        .from("pengaturan")
+        .select("waktu_pengumuman")
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error(error);
+        setTimeLeft("Gagal memuat waktu pengumuman");
+        return;
+      }
+
+      setAnnouncementTime(new Date(data.waktu_pengumuman).getTime());
+    }
+
+    getAnnouncementTime();
+  }, []);
+
+  useEffect(() => {
+    if (!announcementTime) return;
+
     function updateCountdown() {
-      const now = new Date().getTime();
+      const now = Date.now();
       const distance = announcementTime - now;
 
       if (distance <= 0) {
@@ -34,8 +59,7 @@ export default function Home() {
       );
 
       const seconds = Math.floor(
-        (distance % (1000 * 60)) /
-          1000
+        (distance % (1000 * 60)) / 1000
       );
 
       setTimeLeft(
@@ -54,7 +78,7 @@ export default function Home() {
     const timer = setInterval(updateCountdown, 1000);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [announcementTime]);
 
   return (
     <main
@@ -153,7 +177,7 @@ export default function Home() {
               fontSize: "13px",
             }}
           >
-            28 September 2026 • 19.00 WIB
+            Waktu pengumuman ditentukan oleh panitia
           </p>
         </div>
 

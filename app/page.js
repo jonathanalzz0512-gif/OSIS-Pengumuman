@@ -1,45 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-);
 
 export default function Home() {
   const [announcementTime, setAnnouncementTime] = useState(null);
   const [timeLeft, setTimeLeft] = useState("Memuat...");
+  const [opened, setOpened] = useState(false);
+
+  const [pesertaId, setPesertaId] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
-    async function getAnnouncementTime() {
-      const { data, error } = await supabase
-        .from("pengaturan")
-        .select("waktu_pengumuman")
-        .limit(1)
-        .single();
+    async function loadAnnouncement() {
+      try {
+        const response = await fetch("/api/pengumuman");
+        const data = await response.json();
 
-      if (error) {
-        console.error(error);
-        setTimeLeft("Gagal memuat waktu pengumuman");
-        return;
+        if (!response.ok) {
+          setError("Gagal memuat waktu pengumuman.");
+          return;
+        }
+
+        setAnnouncementTime(
+          new Date(data.waktu_pengumuman).getTime()
+        );
+      } catch {
+        setError("Gagal terhubung ke server.");
       }
-
-      setAnnouncementTime(new Date(data.waktu_pengumuman).getTime());
     }
 
-    getAnnouncementTime();
+    loadAnnouncement();
   }, []);
 
   useEffect(() => {
     if (!announcementTime) return;
 
     function updateCountdown() {
-      const now = Date.now();
-      const distance = announcementTime - now;
+      const distance = announcementTime - Date.now();
 
       if (distance <= 0) {
+        setOpened(true);
         setTimeLeft("PENGUMUMAN SUDAH DIBUKA");
         return;
       }
@@ -63,13 +67,12 @@ export default function Home() {
       );
 
       setTimeLeft(
-        `${days} : ${hours
-          .toString()
-          .padStart(2, "0")} : ${minutes
-          .toString()
-          .padStart(2, "0")} : ${seconds
-          .toString()
-          .padStart(2, "0")}`
+        `${days} : ${String(hours).padStart(2, "0")} : ${String(
+          minutes
+        ).padStart(2, "0")} : ${String(seconds).padStart(
+          2,
+          "0"
+        )}`
       );
     }
 
@@ -79,6 +82,39 @@ export default function Home() {
 
     return () => clearInterval(timer);
   }, [announcementTime]);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          peserta_id: pesertaId,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Login gagal.");
+        return;
+      }
+
+      setResult(data.peserta);
+    } catch {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <main
@@ -97,7 +133,7 @@ export default function Home() {
         style={{
           width: "100%",
           maxWidth: "520px",
-          background: "#ffffff",
+          background: "#fff",
           borderRadius: "24px",
           padding: "35px 25px",
           textAlign: "center",
@@ -110,7 +146,7 @@ export default function Home() {
             height: "70px",
             borderRadius: "20px",
             background: "#1261d6",
-            color: "#ffffff",
+            color: "#fff",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -142,57 +178,171 @@ export default function Home() {
           Hasil Seleksi Calon Pengurus OSIS
         </p>
 
-        <div
-          style={{
-            background: "#eef5ff",
-            borderRadius: "18px",
-            padding: "25px 15px",
-          }}
-        >
-          <p
-            style={{
-              color: "#1261d6",
-              fontWeight: "bold",
-              marginBottom: "12px",
-            }}
-          >
-            PENGUMUMAN AKAN DIBUKA DALAM
-          </p>
-
+        {error && (
           <div
             style={{
-              fontSize: "30px",
-              fontWeight: "bold",
-              color: "#172033",
-              letterSpacing: "2px",
+              background: "#fff1f2",
+              color: "#dc2626",
+              padding: "12px",
+              borderRadius: "12px",
+              marginBottom: "18px",
+              fontSize: "14px",
             }}
           >
-            {timeLeft}
+            {error}
           </div>
+        )}
 
-          <p
+        {!opened && !result && (
+          <div
             style={{
-              marginTop: "12px",
-              color: "#6b7280",
-              fontSize: "13px",
+              background: "#eef5ff",
+              borderRadius: "18px",
+              padding: "25px 15px",
             }}
           >
-            Waktu pengumuman ditentukan oleh panitia
-          </p>
-        </div>
+            <p
+              style={{
+                color: "#1261d6",
+                fontWeight: "bold",
+              }}
+            >
+              PENGUMUMAN AKAN DIBUKA DALAM
+            </p>
 
-        <p
-          style={{
-            marginTop: "25px",
-            fontSize: "13px",
-            color: "#7a8394",
-            lineHeight: "1.6",
-          }}
-        >
-          Hasil seleksi dapat dilihat setelah waktu
-          pengumuman resmi dibuka.
-        </p>
-      </div>
-    </main>
-  );
-}
+            <div
+              style={{
+                fontSize: "30px",
+                fontWeight: "bold",
+                color: "#172033",
+                letterSpacing: "2px",
+                marginTop: "12px",
+              }}
+            >
+              {timeLeft}
+            </div>
+
+            <p
+              style={{
+                marginTop: "12px",
+                color: "#6b7280",
+                fontSize: "13px",
+              }}
+            >
+              Silakan kembali setelah waktu pengumuman resmi.
+            </p>
+          </div>
+        )}
+
+        {opened && !result && (
+          <form onSubmit={handleLogin}>
+            <div style={{ textAlign: "left" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "7px",
+                  fontWeight: "bold",
+                  color: "#172033",
+                }}
+              >
+                ID Peserta
+              </label>
+
+              <input
+                value={pesertaId}
+                onChange={(e) => setPesertaId(e.target.value)}
+                placeholder="Masukkan ID peserta"
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: "1px solid #d1d5db",
+                  marginBottom: "16px",
+                  boxSizing: "border-box",
+                  fontSize: "15px",
+                }}
+              />
+
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "7px",
+                  fontWeight: "bold",
+                  color: "#172033",
+                }}
+              >
+                Password
+              </label>
+
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Masukkan password"
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: "1px solid #d1d5db",
+                  marginBottom: "20px",
+                  boxSizing: "border-box",
+                  fontSize: "15px",
+                }}
+              />
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  padding: "14px",
+                  border: "none",
+                  borderRadius: "12px",
+                  background: "#1261d6",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                }}
+              >
+                {loading ? "Memeriksa..." : "Lihat Hasil Seleksi"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {result && (
+          <div>
+            <div
+              style={{
+                background:
+                  result.status === "LULUS"
+                    ? "#eff6ff"
+                    : "#fff1f2",
+                borderRadius: "18px",
+                padding: "25px 15px",
+              }}
+            >
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  color: "#6b7280",
+                }}
+              >
+                HASIL SELEKSI
+              </p>
+
+              <h2
+                style={{
+                  margin: "0 0 18px",
+                  fontSize: "34px",
+                  color:
+                    result.status === "LULUS"
+                      ? "#1261d6"
+                      : "#dc2626",
+                }}
+              >
+                {result.status}
+              </h2>
+
+             
